@@ -1,5 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
+using System.Net.Sockets;
+using System.Net;
+using System.Text;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,11 +19,16 @@ public class GameManager : MonoBehaviour
     const string RED_MESSAGE = "Red's Turn";
     const string GREEN_MESSAGE = "Greens's Turn";
 
-    Color RED_COLOR = new Color(231, 29, 54, 255) / 255;
-    Color GREEN_COLOR = new Color(0, 222, 1, 255) / 255;
+    Color RED_COLOR = new Color(231, 29, 54, 255) / 255f;
+    Color GREEN_COLOR = new Color(0, 222, 1, 255) / 255f;
 
     Board myBoard;
 
+    // Configurações P2P
+    TcpListener server;
+    Thread listenThread;
+    int listenPort = 5050; // Porta para escutar conexões
+    string otherIp = "127.0.0.1"; // IP do outro peer (troque para o IP real)
 
     private void Awake()
     {
@@ -29,26 +37,77 @@ public class GameManager : MonoBehaviour
         turnMessage.text = RED_MESSAGE;
         turnMessage.color = RED_COLOR;
         myBoard = new Board();
+
+        StartServer();
     }
 
-
-    public void GameStart()
+    void StartServer()
     {
-        UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+        listenThread = new Thread(() =>
+        {
+            try
+            {
+                server = new TcpListener(IPAddress.Any, listenPort);
+                server.Start();
+                Debug.Log("[P2P] Servidor iniciado na porta " + listenPort);
+
+                while (true)
+                {
+                    TcpClient client = server.AcceptTcpClient();
+                    NetworkStream stream = client.GetStream();
+
+                    byte[] buffer = new byte[1024];
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                    string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    Debug.Log("[P2P] Mensagem recebida: " + msg);
+
+                    if (int.TryParse(msg, out int coluna))
+                    {
+                        // Recebe jogada do outro peer e aplica no main thread
+                        UnityMainThreadDispatcher.Instance().Enqueue(() => JogadaRecebida(coluna));
+                    }
+
+                    stream.Close();
+                    client.Close();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[P2P] Erro no servidor: " + e.Message);
+            }
+        });
+        listenThread.IsBackground = true;
+        listenThread.Start();
     }
 
-    public void GameQuit()
+    void SendMove(int coluna)
     {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#endif
-        Application.Quit();
-    }
+        try
+        {
+            TcpClient client = new TcpClient();
+            client.Connect(otherIp, listenPort);
 
+            NetworkStream stream = client.GetStream();
+            byte[] message = Encoding.UTF8.GetBytes(coluna.ToString());
+            stream.Write(message, 0, message.Length);
+
+            stream.Close();
+            client.Close();
+
+            Debug.Log("[P2P] Jogada enviada: " + coluna);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[P2P] Erro ao enviar jogada: " + e.Message);
+        }
+    }
 
     private void Update()
     {
-        if(Input.GetMouseButtonDown(0))
+        if (!isPlayer || hasGameFinished)
+            return;
+
+        if (Input.GetMouseButtonDown(0))
         {
             //If GameFinsished then return
             if (hasGameFinished) return;
@@ -59,39 +118,87 @@ public class GameManager : MonoBehaviour
             RaycastHit2D hit = Physics2D.Raycast(mousePos2D, Vector2.zero);
             if (!hit.collider) return;
 
-            if(hit.collider.CompareTag("Press"))
+            if (hit.collider.CompareTag("Press"))
             {
-                //Check out of Bounds
                 if (hit.collider.gameObject.GetComponent<Column>().targetlocation.y > 1.5f) return;
 
-                //Spawn the GameObject
+                int coluna = hit.collider.gameObject.GetComponent<Column>().col - 1;
+
+                // Spawn local e atualizar tabuleiro
                 Vector3 spawnPos = hit.collider.gameObject.GetComponent<Column>().spawnLocation;
                 Vector3 targetPos = hit.collider.gameObject.GetComponent<Column>().targetlocation;
                 GameObject circle = Instantiate(isPlayer ? red : green);
                 circle.transform.position = spawnPos;
                 circle.GetComponent<Mover>().targetPostion = targetPos;
 
-                //Increase the targetLocationHeight
                 hit.collider.gameObject.GetComponent<Column>().targetlocation = new Vector3(targetPos.x, targetPos.y + 0.7f, targetPos.z);
 
-                //UpdateBoard
-                myBoard.UpdateBoard(hit.collider.gameObject.GetComponent<Column>().col - 1, isPlayer);
-                if(myBoard.Result(isPlayer))
+                myBoard.UpdateBoard(coluna, isPlayer);
+                if (myBoard.Result(isPlayer))
                 {
                     turnMessage.text = (isPlayer ? "Red" : "Green") + " Wins!";
                     hasGameFinished = true;
                     return;
                 }
 
-                //TurnMessage
-                turnMessage.text = !isPlayer ? RED_MESSAGE : GREEN_MESSAGE;
-                turnMessage.color = !isPlayer ? RED_COLOR : GREEN_COLOR;
+                // Envia jogada para outro peer
+                SendMove(coluna);
 
-                //Change PlayerTurn
-                isPlayer = !isPlayer;
+                // Atualiza turno local
+                isPlayer = false;
+                turnMessage.text = GREEN_MESSAGE;
+                turnMessage.color = GREEN_COLOR;
             }
-
         }
     }
 
+    void JogadaRecebida(int coluna)
+    {
+        if (hasGameFinished) return;
+
+        // Busca Column para spawnar peça recebida
+        Column colObj = null;
+        Column[] columns = FindObjectsOfType<Column>();
+        foreach (var c in columns)
+        {
+            if (c.col - 1 == coluna)
+            {
+                colObj = c;
+                break;
+            }
+        }
+        if (colObj == null) return;
+
+        Vector3 spawnPos = colObj.spawnLocation;
+        Vector3 targetPos = colObj.targetlocation;
+
+        GameObject circle = Instantiate(isPlayer ? green : red); // invertido pois é jogada do outro
+        circle.transform.position = spawnPos;
+        circle.GetComponent<Mover>().targetPostion = targetPos;
+
+        colObj.targetlocation = new Vector3(targetPos.x, targetPos.y + 0.7f, targetPos.z);
+
+        myBoard.UpdateBoard(coluna, !isPlayer);
+        if (myBoard.Result(!isPlayer))
+        {
+            turnMessage.text = (!isPlayer ? "Red" : "Green") + " Wins!";
+            hasGameFinished = true;
+            return;
+        }
+
+        // Volta o turno para você
+        isPlayer = true;
+        turnMessage.text = RED_MESSAGE;
+        turnMessage.color = RED_COLOR;
+    }
+
+    private void OnApplicationQuit()
+    {
+        try
+        {
+            server?.Stop();
+            listenThread?.Abort();
+        }
+        catch { }
+    }
 }
