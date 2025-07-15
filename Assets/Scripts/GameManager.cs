@@ -172,11 +172,12 @@ public class GameManager : MonoBehaviour
 
         colObj.targetlocation += new Vector3(0, 0.7f, 0);
 
-        myBoard.UpdateBoard(coluna, !playerIsRed); // ✅ oponente = cor oposta
-
-        if (myBoard.Result(!playerIsRed))
+        bool jogadaFoiDoOponente = true;
+        myBoard.UpdateBoard(coluna, jogadaFoiDoOponente);
+        if (myBoard.Result(jogadaFoiDoOponente))
         {
-            turnMessage.text = (!playerIsRed ? "Red" : "Green") + " Wins!";
+            string vencedor = playerIsRed ? "Green" : "Red";
+            turnMessage.text = vencedor + " Wins!";
             hasGameFinished = true;
             return;
         }
