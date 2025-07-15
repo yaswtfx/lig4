@@ -28,12 +28,12 @@ public class GameManager : MonoBehaviour
     TcpListener server;
     Thread listenThread;
     int listenPort = 5050; // Porta para escutar conexões
-    string otherIp = "10.57.10.46"; // IP do outro peer (troque para o IP real)
+    string otherIp = "10.57.10.47"; // IP do outro peer (troque para o IP real)
 
     private void Awake()
     {
         playerIsRed = PlayerPreferences.Instance.IsPlayerRed;
-        isPlayer = playerIsRed;
+        isPlayer = playerIsRed; // vermelho começa
         hasGameFinished = false;
         turnMessage.text = RED_MESSAGE;
         turnMessage.color = RED_COLOR;
@@ -105,52 +105,44 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (!isPlayer || hasGameFinished)
-            return;
-
         if (Input.GetMouseButtonDown(0))
         {
-            //If GameFinsished then return
-            if (hasGameFinished) return;
+            if (hasGameFinished || !isPlayer) return;
 
-            //Raycast2D
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector2 mousePos2D = new Vector2(mousePos.x, mousePos.y);
             RaycastHit2D hit = Physics2D.Raycast(mousePos2D, Vector2.zero);
-            if (!hit.collider) return;
+            if (!hit.collider || !hit.collider.CompareTag("Press")) return;
 
-            if (hit.collider.CompareTag("Press"))
+            Column column = hit.collider.GetComponent<Column>();
+            if (column.targetlocation.y > 1.5f) return;
+
+            int coluna = column.col - 1;
+
+            Vector3 spawnPos = column.spawnLocation;
+            Vector3 targetPos = column.targetlocation;
+
+            // ✅ Usa a cor do jogador local
+            GameObject circle = Instantiate(playerIsRed ? red : green);
+            circle.transform.position = spawnPos;
+            circle.GetComponent<Mover>().targetPostion = targetPos;
+
+            column.targetlocation += new Vector3(0, 0.7f, 0);
+
+            myBoard.UpdateBoard(coluna, playerIsRed); // ✅ usa a cor local
+            if (myBoard.Result(playerIsRed))
             {
-                if (hit.collider.gameObject.GetComponent<Column>().targetlocation.y > 1.5f) return;
-
-                int coluna = hit.collider.gameObject.GetComponent<Column>().col - 1;
-
-                // Spawn local e atualizar tabuleiro
-                Vector3 spawnPos = hit.collider.gameObject.GetComponent<Column>().spawnLocation;
-                Vector3 targetPos = hit.collider.gameObject.GetComponent<Column>().targetlocation;
-                bool adversarioEhVermelho = !isPlayer;  // Se é sua vez, adversário fez a jogada
-                GameObject circle = Instantiate(adversarioEhVermelho ? red : green);
-                circle.transform.position = spawnPos;
-                circle.GetComponent<Mover>().targetPostion = targetPos;
-
-                hit.collider.gameObject.GetComponent<Column>().targetlocation = new Vector3(targetPos.x, targetPos.y + 0.7f, targetPos.z);
-
-                myBoard.UpdateBoard(coluna, isPlayer);
-                if (myBoard.Result(isPlayer))
-                {
-                    turnMessage.text = (isPlayer ? "Red" : "Green") + " Wins!";
-                    hasGameFinished = true;
-                    return;
-                }
-
-                // Envia jogada para outro peer
-                SendMove(coluna);
-
-                // Atualiza turno local
-                isPlayer = false;
-                turnMessage.text = GREEN_MESSAGE;
-                turnMessage.color = GREEN_COLOR;
+                turnMessage.text = (playerIsRed ? "Red" : "Green") + " Wins!";
+                hasGameFinished = true;
+                return;
             }
+
+            SendMove(coluna); // envia jogada pro outro jogador
+
+            // ❌ AGORA é turno do oponente
+            isPlayer = false;
+            turnMessage.text = playerIsRed ? GREEN_MESSAGE : RED_MESSAGE;
+            turnMessage.color = playerIsRed ? GREEN_COLOR : RED_COLOR;
         }
     }
 
@@ -158,9 +150,8 @@ public class GameManager : MonoBehaviour
     {
         if (hasGameFinished) return;
 
-        // Busca Column para spawnar peça recebida
-        Column colObj = null;
         Column[] columns = FindObjectsOfType<Column>();
+        Column colObj = null;
         foreach (var c in columns)
         {
             if (c.col - 1 == coluna)
@@ -174,34 +165,28 @@ public class GameManager : MonoBehaviour
         Vector3 spawnPos = colObj.spawnLocation;
         Vector3 targetPos = colObj.targetlocation;
 
+        // ✅ Sempre usa a cor oposta do jogador local
         GameObject circle = Instantiate(playerIsRed ? green : red);
         circle.transform.position = spawnPos;
         circle.GetComponent<Mover>().targetPostion = targetPos;
 
-        colObj.targetlocation = new Vector3(targetPos.x, targetPos.y + 0.7f, targetPos.z);
+        colObj.targetlocation += new Vector3(0, 0.7f, 0);
 
-        myBoard.UpdateBoard(coluna, !isPlayer);
-        if (myBoard.Result(!isPlayer))
+        myBoard.UpdateBoard(coluna, !playerIsRed); // ✅ oponente = cor oposta
+
+        if (myBoard.Result(!playerIsRed))
         {
-            turnMessage.text = (!isPlayer ? "Red" : "Green") + " Wins!";
+            turnMessage.text = (!playerIsRed ? "Red" : "Green") + " Wins!";
             hasGameFinished = true;
             return;
         }
 
-        // Volta o turno para você
+        // ✅ Agora é sua vez
         isPlayer = true;
-        if (playerIsRed)
-        {
-            turnMessage.text = RED_MESSAGE;
-            turnMessage.color = RED_COLOR;
-        }
-        else
-        {
-            turnMessage.text = GREEN_MESSAGE;
-            turnMessage.color = GREEN_COLOR;
-        }
-
+        turnMessage.text = playerIsRed ? RED_MESSAGE : GREEN_MESSAGE;
+        turnMessage.color = playerIsRed ? RED_COLOR : GREEN_COLOR;
     }
+
 
     private void OnApplicationQuit()
     {
