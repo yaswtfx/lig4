@@ -174,7 +174,7 @@ public class GameManager : MonoBehaviour
         Vector3 spawnPos = colObj.spawnLocation;
         Vector3 targetPos = colObj.targetlocation;
 
-        GameObject circle = Instantiate(isPlayer ? (playerIsRed ? red : green) : (playerIsRed ? green : red));
+        GameObject circle = Instantiate(playerIsRed ? green : red);
         circle.transform.position = spawnPos;
         circle.GetComponent<Mover>().targetPostion = targetPos;
 
@@ -190,8 +190,17 @@ public class GameManager : MonoBehaviour
 
         // Volta o turno para você
         isPlayer = true;
-        turnMessage.text = RED_MESSAGE;
-        turnMessage.color = RED_COLOR;
+        if (playerIsRed)
+        {
+            turnMessage.text = RED_MESSAGE;
+            turnMessage.color = RED_COLOR;
+        }
+        else
+        {
+            turnMessage.text = GREEN_MESSAGE;
+            turnMessage.color = GREEN_COLOR;
+        }
+
     }
 
     private void OnApplicationQuit()
