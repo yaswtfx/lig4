@@ -11,7 +11,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     GameObject red, green;
 
-    bool isPlayer, hasGameFinished;
+    bool isPlayer, hasGameFinished, playerIsRed;
 
     [SerializeField]
     Text turnMessage;
@@ -32,7 +32,8 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        isPlayer = true;
+        playerIsRed = PlayerPreferences.Instance.IsPlayerRed;
+        isPlayer = playerIsRed;
         hasGameFinished = false;
         turnMessage.text = RED_MESSAGE;
         turnMessage.color = RED_COLOR;
@@ -173,7 +174,7 @@ public class GameManager : MonoBehaviour
         Vector3 spawnPos = colObj.spawnLocation;
         Vector3 targetPos = colObj.targetlocation;
 
-        GameObject circle = Instantiate(isPlayer ? green : red); // invertido pois é jogada do outro
+        GameObject circle = Instantiate(isPlayer ? (playerIsRed ? red : green) : (playerIsRed ? green : red));
         circle.transform.position = spawnPos;
         circle.GetComponent<Mover>().targetPostion = targetPos;
 
