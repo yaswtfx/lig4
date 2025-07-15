@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviour
     TcpListener server;
     Thread listenThread;
     int listenPort = 5050; // Porta para escutar conexões
-    string otherIp = "127.0.0.1"; // IP do outro peer (troque para o IP real)
+    string otherIp = "10.57.10.47"; // IP do outro peer (troque para o IP real)
 
     private void Awake()
     {
@@ -127,7 +127,8 @@ public class GameManager : MonoBehaviour
                 // Spawn local e atualizar tabuleiro
                 Vector3 spawnPos = hit.collider.gameObject.GetComponent<Column>().spawnLocation;
                 Vector3 targetPos = hit.collider.gameObject.GetComponent<Column>().targetlocation;
-                GameObject circle = Instantiate(isPlayer ? red : green);
+                bool adversarioEhVermelho = !isPlayer;  // Se é sua vez, adversário fez a jogada
+                GameObject circle = Instantiate(adversarioEhVermelho ? red : green);
                 circle.transform.position = spawnPos;
                 circle.GetComponent<Mover>().targetPostion = targetPos;
 
