@@ -46,67 +46,40 @@ public class Board
     public bool Result(bool isPlayer)
     {
         PlayerType current = isPlayer ? PlayerType.RED : PlayerType.GREEN;
-        return IsHorizontal(current) || IsVertical(current) || IsDiagonal(current) || IsReverseDiagonal(current);
+
+        return CheckDirection(current, 0, 1) ||  // Horizontal
+               CheckDirection(current, 1, 0) ||  // Vertical
+               CheckDirection(current, 1, 1) ||  // Diagonal ↘
+               CheckDirection(current, 1, -1);   // Diagonal ↙
     }
 
-    bool IsHorizontal(PlayerType current)
+    bool CheckDirection(PlayerType current, int dRow, int dCol)
     {
-        GridPos start = GetEndPoint(new GridPos { row = 0, col = -1 });
-        List<GridPos> toSearchList = GetPlayerList(start, new GridPos { row = 0, col = 1 });
-        return SearchResult(toSearchList,current);
+        int count = 1;
+
+        // Verifica em uma direção
+        count += CountDirection(current, dRow, dCol);
+
+        // Verifica na direção oposta
+        count += CountDirection(current, -dRow, -dCol);
+
+        return count >= 4;
     }
 
-    bool IsVertical(PlayerType current)
+    int CountDirection(PlayerType current, int dRow, int dCol)
     {
-        GridPos start = GetEndPoint(new GridPos { row = -1, col = 0 });
-        List<GridPos> toSearchList = GetPlayerList(start, new GridPos { row = 1, col = 0 });
-        return SearchResult(toSearchList, current);
-    }
+        int r = currentPos.row + dRow;
+        int c = currentPos.col + dCol;
+        int count = 0;
 
-    bool IsDiagonal(PlayerType current)
-    {
-        GridPos start = GetEndPoint(new GridPos { row = -1, col = -1 });
-        List<GridPos> toSearchList = GetPlayerList(start, new GridPos { row = 1, col = 1 });
-        return SearchResult(toSearchList, current);
-    }
-
-    bool IsReverseDiagonal(PlayerType current)
-    {
-        GridPos start = GetEndPoint(new GridPos { row = -1, col = 1 });
-        List<GridPos> toSearchList = GetPlayerList(start, new GridPos { row = 1, col = -1 });
-        return SearchResult(toSearchList, current);
-    }
-
-    GridPos GetEndPoint(GridPos diff)
-    {
-        GridPos result = new GridPos { row = currentPos.row, col = currentPos.col };
-        while (result.row + diff.row < 6 &&
-                result.col + diff.col < 7 &&
-                result.row + diff.row >=0 &&
-                result.col + diff.col >=0)
+        while (r >= 0 && r < 6 && c >= 0 && c < 7 && playerBoard[r][c] == current)
         {
-            result.row += diff.row;
-            result.col += diff.col;
-        }
-        return result;
-    }
-
-    List<GridPos> GetPlayerList(GridPos start, GridPos diff)
-    {
-        List<GridPos> resList;
-        resList = new List<GridPos> { start };
-        GridPos result = new GridPos { row = start.row, col = start.col };
-        while (result.row + diff.row < 6 &&
-                result.col + diff.col < 7 &&
-                result.row + diff.row >= 0 &&
-                result.col + diff.col >= 0)
-        {
-            result.row += diff.row;
-            result.col += diff.col;
-            resList.Add(result);
+            count++;
+            r += dRow;
+            c += dCol;
         }
 
-        return resList;
+        return count;
     }
 
     bool SearchResult(List<GridPos> searchList, PlayerType current)
