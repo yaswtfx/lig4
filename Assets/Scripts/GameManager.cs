@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviour
     TcpListener server;
     Thread listenThread;
     int listenPort = 5050; // Porta para escutar conexões
-    string otherIp = "10.57.10.47"; // IP do outro peer (troque para o IP real)
+    string otherIp = "10.57.1.15"; // IP do outro peer (troque para o IP real)
 
     private void Awake()
     {
@@ -129,15 +129,16 @@ public class GameManager : MonoBehaviour
 
             column.targetlocation += new Vector3(0, 0.7f, 0);
 
+            
             myBoard.UpdateBoard(coluna, playerIsRed); // ✅ usa a cor local
+            SendMove(coluna); // envia jogada pro outro jogador
+            
             if (myBoard.Result(playerIsRed))
             {
                 turnMessage.text = (playerIsRed ? "Red" : "Green") + " Wins!";
                 hasGameFinished = true;
                 return;
             }
-
-            SendMove(coluna); // envia jogada pro outro jogador
 
             // ❌ AGORA é turno do oponente
             isPlayer = false;
