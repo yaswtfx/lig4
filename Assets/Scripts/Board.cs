@@ -17,7 +17,7 @@ public class Board
         for (int i = 0; i < playerBoard.Length; i++)
         {
             playerBoard[i] = new PlayerType[7];
-            for(int j =0; j < playerBoard[i].Length; j++)
+            for(int j = 0; j < playerBoard[i].Length; j++)
             {
                 playerBoard[i][j] = PlayerType.NONE;
             }
@@ -46,6 +46,7 @@ public class Board
     public bool Result(bool isPlayer)
     {
         PlayerType current = isPlayer ? PlayerType.RED : PlayerType.GREEN;
+        Debug.Log($"[CHECK] Verificando vitória para {(isPlayer ? "RED" : "GREEN")} em linha {currentPos.row}, coluna {currentPos.col}");
 
         return CheckDirection(current, 0, 1) ||  // Horizontal
                CheckDirection(current, 1, 0) ||  // Vertical
