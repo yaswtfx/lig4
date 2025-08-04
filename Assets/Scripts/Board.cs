@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum PlayerType { NONE,RED,GREEN}
+public enum PlayerType { NONE, RED, GREEN }
 
 public struct GridPos { public int row, col; }
 
@@ -17,36 +17,42 @@ public class Board
         for (int i = 0; i < playerBoard.Length; i++)
         {
             playerBoard[i] = new PlayerType[7];
-            for(int j = 0; j < playerBoard[i].Length; j++)
+            for (int j = 0; j < playerBoard[i].Length; j++)
             {
                 playerBoard[i][j] = PlayerType.NONE;
             }
         }
     }
 
-    public void UpdateBoard(int col,bool isPlayer)
+    public void UpdateBoard(int col, bool isPlayer)
     {
-        int updatePos = 6;
-        for (int i = 5; i >= 0; i-- )
+        int updatePos = -1;
+        for (int i = 5; i >= 0; i--)
         {
-            if(playerBoard[i][col] == PlayerType.NONE)
+            if (playerBoard[i][col] == PlayerType.NONE)
             {
-                updatePos--;
-            }
-            else
-            {
+                updatePos = i;
                 break;
             }
         }
 
-        playerBoard[updatePos][col] = isPlayer ? PlayerType.RED : PlayerType.GREEN;
-        currentPos = new GridPos { row = updatePos, col = col };
+        if (updatePos != -1)
+        {
+            playerBoard[updatePos][col] = isPlayer ? PlayerType.RED : PlayerType.GREEN;
+            currentPos = new GridPos { row = updatePos, col = col };
+        }
+        else
+        {
+            Debug.LogError("Coluna cheia! Tentou jogar em coluna: " + col);
+        }
     }
 
-    public bool Result(bool isPlayer)
+    public bool Result()
     {
-        PlayerType current = isPlayer ? PlayerType.RED : PlayerType.GREEN;
-        Debug.Log($"[CHECK] Verificando vitória para {(isPlayer ? "RED" : "GREEN")} em linha {currentPos.row}, coluna {currentPos.col}");
+        PlayerType current = playerBoard[currentPos.row][currentPos.col];
+        if (current == PlayerType.NONE) return false;
+
+        Debug.Log($"[CHECK] Verificando vitória para {current} em linha {currentPos.row}, coluna {currentPos.col}");
 
         return CheckDirection(current, 0, 1) ||  // Horizontal
                CheckDirection(current, 1, 0) ||  // Vertical
@@ -87,10 +93,10 @@ public class Board
     {
         int counter = 0;
 
-        for(int i = 0; i < searchList.Count; i++)
+        for (int i = 0; i < searchList.Count; i++)
         {
             PlayerType compare = playerBoard[searchList[i].row][searchList[i].col];
-            if( compare == current)
+            if (compare == current)
             {
                 counter++;
                 if (counter == 4)
