@@ -17,7 +17,7 @@ public class GameManager : MonoBehaviour
     Text turnMessage;
 
     const string RED_MESSAGE = "Red's Turn";
-    const string GREEN_MESSAGE = "Greens's Turn";
+    const string GREEN_MESSAGE = "Green's Turn";
 
     Color RED_COLOR = new Color(231, 29, 54, 255) / 255f;
     Color GREEN_COLOR = new Color(0, 222, 1, 255) / 255f;
@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviour
     TcpListener server;
     Thread listenThread;
     int listenPort = 5050; // Porta para escutar conexões
-    string otherIp = "10.57.10.25"; // IP do outro peer (troque para o IP real)
+    string otherIp = "10.57.10.23"; // IP do outro peer (troque para o IP real)
 
     private void Awake()
     {
@@ -64,7 +64,6 @@ public class GameManager : MonoBehaviour
 
                     if (int.TryParse(msg, out int coluna))
                     {
-                        // Recebe jogada do outro peer e aplica no main thread
                         UnityMainThreadDispatcher.Instance().Enqueue(() => JogadaRecebida(coluna));
                     }
 
@@ -122,25 +121,22 @@ public class GameManager : MonoBehaviour
             Vector3 spawnPos = column.spawnLocation;
             Vector3 targetPos = column.targetlocation;
 
-            // ✅ Usa a cor do jogador local
             GameObject circle = Instantiate(playerIsRed ? red : green);
             circle.transform.position = spawnPos;
             circle.GetComponent<Mover>().targetPostion = targetPos;
 
             column.targetlocation += new Vector3(0, 0.7f, 0);
 
-            
-            myBoard.UpdateBoard(coluna, playerIsRed); // ✅ usa a cor local
-            SendMove(coluna); // envia jogada pro outro jogador
-            
-            if (myBoard.Result()) // agora detecta a cor diretamente da peça na posição jogada
+            myBoard.UpdateBoard(coluna, playerIsRed);
+            SendMove(coluna);
+
+            if (myBoard.Result())
             {
                 turnMessage.text = (playerIsRed ? "Red" : "Green") + " Wins!";
                 hasGameFinished = true;
                 return;
             }
 
-            // ❌ AGORA é turno do oponente
             isPlayer = false;
             turnMessage.text = playerIsRed ? GREEN_MESSAGE : RED_MESSAGE;
             turnMessage.color = playerIsRed ? GREEN_COLOR : RED_COLOR;
@@ -166,16 +162,17 @@ public class GameManager : MonoBehaviour
         Vector3 spawnPos = colObj.spawnLocation;
         Vector3 targetPos = colObj.targetlocation;
 
-        // ✅ Sempre usa a cor oposta do jogador local
         GameObject circle = Instantiate(playerIsRed ? green : red);
         circle.transform.position = spawnPos;
         circle.GetComponent<Mover>().targetPostion = targetPos;
 
         colObj.targetlocation += new Vector3(0, 0.7f, 0);
 
-        bool jogadaFoiDoOponente = true;
+        // ❗ Correção aqui: a jogada do oponente é da cor contrária à sua
+        bool jogadaFoiDoOponente = !playerIsRed;
         myBoard.UpdateBoard(coluna, jogadaFoiDoOponente);
-        if (myBoard.Result()) // agora detecta a cor diretamente da peça na posição jogada
+
+        if (myBoard.Result())
         {
             string vencedor = playerIsRed ? "Green" : "Red";
             turnMessage.text = vencedor + " Wins!";
@@ -183,12 +180,10 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // ✅ Agora é sua vez
         isPlayer = true;
         turnMessage.text = playerIsRed ? RED_MESSAGE : GREEN_MESSAGE;
         turnMessage.color = playerIsRed ? RED_COLOR : GREEN_COLOR;
     }
-
 
     private void OnApplicationQuit()
     {
